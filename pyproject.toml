@@ -1,0 +1,30 @@
+[project]
+name = "stock-quiz"
+version = "1.0.0"
+description = "Stock/coin chart quiz application - Python dependencies"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "yfinance>=0.2.32",
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "pycoingecko>=3.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "black>=23.0.0",
+    "pylint>=2.17.0",
+]
+
+[build-system]
+requires = ["setuptools>=68.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.black]
+line-length = 100
+target-version = ['py310', 'py311', 'py312']
+
+[tool.pylint]
+max-line-length = 100

@@ -3,6 +3,8 @@
  */
 
 module.exports = {
+  // Debug mode
+  debug: process.env.DEBUG === 'true' || false,
   // API Configuration
   api: {
     chartApiUrl: process.env.CHART_API_URL || '',
@@ -52,5 +54,16 @@ module.exports = {
   chart: {
     maxDataPoints: 1000,
     defaultTimeRange: '1M'
+  },
+
+  // Logging helper
+  log: function(module, message, data = null) {
+    if (this.debug) {
+      const timestamp = new Date().toISOString();
+      console.log(`[${timestamp}] [${module}]`, message);
+      if (data) {
+        console.log('  Data:', JSON.stringify(data, null, 2));
+      }
+    }
   }
 };

@@ -6,15 +6,16 @@
 const express = require('express');
 const path = require('path');
 const ChartService = require('../services/chartService');
-const DataProcessor = require('../services/dataProcessor');
-const Quiz = require('../models/Quiz');
+const CoinGeckoProvider = require('../providers/coinGeckoProvider');
+const config = require('../utils/config');
 
 class WebServer {
   constructor() {
+    config.log('WebServer', 'Initializing Web Server');
     this.app = express();
     this.port = process.env.PORT || 3000;
     this.chartService = new ChartService();
-    this.activeQuizzes = new Map();
+    this.coinGeckoProvider = new CoinGeckoProvider();
     
     this.setupMiddleware();
     this.setupRoutes();
@@ -38,106 +39,92 @@ class WebServer {
       res.sendFile(path.join(__dirname, 'public', 'index.html'));
     });
 
-    // API: Create new quiz
-    this.app.post('/api/quiz/create', async (req, res) => {
+    // API: Get stock chart data
+    this.app.get('/api/chart/stock/:symbol', async (req, res) => {
       try {
-        const { symbol, difficulty } = req.body;
-        const quiz = await this.createQuiz(symbol, difficulty);
-        res.json({ success: true, quiz });
+        const { symbol } = req.params;
+        const { timeframe = '3M' } = req.query;
+        config.log('WebServer', `API request: stock chart`, { symbol, timeframe });
+        
+        const chartData = await this.chartService.fetchChartData(symbol, timeframe, '1d');
+        
+        // Get additional stock info for P/E ratio
+        const stockInfo = await this.chartService.yfinance.fetchStockInfo(symbol);
+        
+        res.json({
+          success: true,
+          data: chartData.data,
+          metadata: {
+            ...chartData.metadata,
+            trailingPE: stockInfo.trailingPE || 0,
+            forwardPE: stockInfo.forwardPE || 0
+          }
+        });
       } catch (error) {
         res.status(500).json({ success: false, error: error.message });
       }
     });
 
-    // API: Get quiz by ID
-    this.app.get('/api/quiz/:id', (req, res) => {
+    // API: Get crypto chart data
+    this.app.get('/api/chart/crypto/:coinId', async (req, res) => {
       try {
-        const quiz = this.getQuiz(parseInt(req.params.id));
-        res.json({ success: true, quiz });
+        const { coinId } = req.params;
+        const { timeframe = '3M' } = req.query;
+        config.log('WebServer', `API request: crypto chart`, { coinId, timeframe });
+        
+        // Map timeframe to days for CoinGecko
+        const daysMap = {
+          '1D': 1,
+          '5D': 5,
+          '1M': 30,
+          '3M': 90,
+          '6M': 180,
+          '1Y': 365,
+          '2Y': 730,
+          '5Y': 1825
+        };
+        const days = daysMap[timeframe] || 90;
+        
+        const chartData = await this.coinGeckoProvider.fetchHistoricalData(coinId, 'usd', days);
+        const coinData = await this.coinGeckoProvider.fetchCoinData(coinId, 'usd');
+        
+        res.json({
+          success: true,
+          data: chartData.data,
+          metadata: {
+            name: coinData.name || coinId,
+            symbol: coinData.symbol || '',
+            volume: coinData.volume24h || 0,
+            marketCap: coinData.marketCap || 0,
+            currentPrice: coinData.currentPrice || 0,
+            high24h: coinData.high24h || 0,
+            low24h: coinData.low24h || 0,
+            change24h: coinData.change24h || 0,
+            ath: coinData.ath || 0,
+            atl: coinData.atl || 0,
+            previousClose: coinData.currentPrice || 0
+          }
+        });
       } catch (error) {
-        res.status(404).json({ success: false, error: error.message });
+        res.status(500).json({ success: false, error: error.message });
       }
     });
-
-    // API: Submit answer
-    this.app.post('/api/quiz/:id/submit', (req, res) => {
-      try {
-        const quizId = parseInt(req.params.id);
-        const { price, date } = req.body;
-        const result = this.submitAnswer(quizId, { price, date });
-        res.json({ success: true, result });
-      } catch (error) {
-        res.status(400).json({ success: false, error: error.message });
-      }
-    });
-
-    // API: Get available symbols
-    this.app.get('/api/symbols', (req, res) => {
-      // TODO: Return list of available stock/coin symbols
-      res.json({
-        success: true,
-        symbols: ['BTC', 'ETH', 'AAPL', 'TSLA', 'GOOGL']
-      });
-    });
-  }
-
-  /**
-   * Create a new quiz
-   * @param {string} symbol - Stock/coin symbol
-   * @param {string} difficulty - Quiz difficulty
-   * @returns {Promise<Object>} Quiz data
-   */
-  async createQuiz(symbol, difficulty = 'medium') {
-    // TODO: Implement quiz creation
-    const chartData = await this.chartService.fetchChartData(symbol);
-    const metadata = await this.chartService.getMetadata(symbol);
-    
-    const quiz = DataProcessor.generateQuiz(symbol, chartData, metadata);
-    const quizInstance = new Quiz(quiz);
-    
-    this.activeQuizzes.set(quizInstance.id, quizInstance);
-    
-    return quizInstance.getQuizData();
-  }
-
-  /**
-   * Get quiz by ID
-   * @param {number} quizId - Quiz ID
-   * @returns {Object} Quiz data
-   */
-  getQuiz(quizId) {
-    const quiz = this.activeQuizzes.get(quizId);
-    if (!quiz) {
-      throw new Error('Quiz not found');
-    }
-    return quiz.getQuizData();
-  }
-
-  /**
-   * Submit answer for a quiz
-   * @param {number} quizId - Quiz ID
-   * @param {Object} answer - User's answer
-   * @returns {Object} Result
-   */
-  submitAnswer(quizId, answer) {
-    const quiz = this.activeQuizzes.get(quizId);
-    if (!quiz) {
-      throw new Error('Quiz not found');
-    }
-    
-    const result = quiz.checkAnswer(answer);
-    return {
-      ...result,
-      correctAnswer: quiz.getAnswer()
-    };
   }
 
   /**
    * Start web server
    */
   start() {
+    config.log('WebServer', `Starting server on port ${this.port}`);
     this.app.listen(this.port, () => {
       console.log(`Web Server running at http://localhost:${this.port}`);
+      console.log('Available endpoints:');
+      console.log(`  GET /api/chart/stock/:symbol?timeframe=3M`);
+      console.log(`  GET /api/chart/crypto/:coinId?timeframe=3M`);
+      if (config.debug) {
+        console.log('\n🐛 DEBUG MODE ENABLED');
+        console.log('Set DEBUG=false in .env to disable debug logging\n');
+      }
     });
   }
 }

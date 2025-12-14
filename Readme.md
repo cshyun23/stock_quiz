@@ -76,12 +76,55 @@ stock_quiz/
 ### Prerequisites
 - Node.js (recommended version)
 - npm or yarn
+- Python >=3.10
+- uv (Python package installer)
 
 ### Setup
 
 1. Clone the repository
-2. Install dependencies: `npm install`
-3. Run the MCP server: `npm start`
+
+2. Install Node.js dependencies:
+```bash
+npm install
+```
+
+3. Create Python virtual environment with uv:
+```bash
+uv venv
+```
+
+4. Activate virtual environment:
+```bash
+# Windows
+.venv\Scripts\activate
+
+# Linux/Mac
+source .venv/bin/activate
+```
+
+5. Install Python dependencies:
+```bash
+uv pip install -e .
+```
+
+Or alternatively:
+```bash
+uv pip install yfinance pandas numpy
+```
+
+6. Run tests to verify setup:
+```bash
+npm test
+```
+
+7. Start the servers:
+```bash
+# MCP Server
+npm start
+
+# Web Server
+npm run serve
+```
 
 ## Contributing
 
