@@ -5,12 +5,18 @@
 
 const { spawn } = require('child_process');
 const path = require('path');
+const fs = require('fs');
 const config = require('../utils/config');
 
 class CoinGeckoProvider {
   constructor() {
     config.log('CoinGeckoProvider', 'Initializing CoinGeckoProvider');
     this.pythonScript = path.join(__dirname, 'coingecko_fetcher.py');
+    
+    // Try to use venv Python if available
+    const venvPython = path.join(process.cwd(), '.venv', 'Scripts', 'python.exe');
+    this.pythonCmd = fs.existsSync(venvPython) ? venvPython : 'python';
+    config.log('CoinGeckoProvider', `Using Python: ${this.pythonCmd}`);
   }
 
   /**
@@ -23,7 +29,7 @@ class CoinGeckoProvider {
   async fetchHistoricalData(coinId, vsCurrency = 'usd', days = 30) {
     config.log('CoinGeckoProvider', `Fetching historical data`, { coinId, vsCurrency, days });
     return new Promise((resolve, reject) => {
-      const python = spawn('python', [
+      const python = spawn(this.pythonCmd, [
         this.pythonScript,
         'historical',
         coinId,
@@ -68,7 +74,7 @@ class CoinGeckoProvider {
   async fetchCoinData(coinId, vsCurrency = 'usd') {
     config.log('CoinGeckoProvider', `Fetching coin data for ${coinId}`);
     return new Promise((resolve, reject) => {
-      const python = spawn('python', [
+      const python = spawn(this.pythonCmd, [
         this.pythonScript,
         'current',
         coinId,
@@ -121,7 +127,7 @@ class CoinGeckoProvider {
    */
   async searchCoins(query) {
     return new Promise((resolve, reject) => {
-      const python = spawn('python', [
+      const python = spawn(this.pythonCmd, [
         this.pythonScript,
         'search',
         query
@@ -160,7 +166,7 @@ class CoinGeckoProvider {
    */
   async getSupportedCoins() {
     return new Promise((resolve, reject) => {
-      const python = spawn('python', [
+      const python = spawn(this.pythonCmd, [
         this.pythonScript,
         'list'
       ]);
@@ -222,16 +228,23 @@ class CoinGeckoProvider {
    */
   async checkAvailability() {
     return new Promise((resolve) => {
-      const python = spawn('python', ['-c', 'import pycoingecko; print("OK")']);
+      // Try to run a simple list command to check if pycoingecko works
+      const python = spawn(this.pythonCmd, [this.pythonScript, 'list']);
       
-      let output = '';
+      let hasData = false;
       python.stdout.on('data', (data) => {
-        output += data.toString();
+        hasData = true;
       });
 
       python.on('close', (code) => {
-        resolve(code === 0 && output.includes('OK'));
+        resolve(code === 0 && hasData);
       });
+
+      // Set timeout to avoid hanging
+      setTimeout(() => {
+        python.kill();
+        resolve(false);
+      }, 5000);
     });
   }
 }

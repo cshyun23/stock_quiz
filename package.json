@@ -11,7 +11,9 @@
     "test": "node test/run_all_tests.js",
     "test:provider": "node test/test_yfinance_provider.js",
     "test:chart": "node test/test_chart_service.js",
-    "test:quiz": "node test/test_quiz_generation.js"
+    "test:quiz": "node test/test_quiz_generation.js",
+    "test:dummy": "node test/test_dummy_data.js",
+    "test:coingecko": "node test/test_coingecko_dummy.js"
   },
   "keywords": [
     "stock",
