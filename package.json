@@ -1,0 +1,27 @@
+{
+  "name": "stock-quiz",
+  "version": "1.0.0",
+  "description": "Stock/coin chart quiz application with MCP server and web hosting",
+  "main": "src/web/server.js",
+  "scripts": {
+    "start": "node src/mcp/server.js",
+    "serve": "node src/web/server.js",
+    "dev": "nodemon src/web/server.js",
+    "mcp": "node src/mcp/server.js"
+  },
+  "keywords": [
+    "stock",
+    "crypto",
+    "quiz",
+    "mcp",
+    "chart"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
