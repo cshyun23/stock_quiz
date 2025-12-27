@@ -60,3 +60,4 @@ coverage/
 # Build outputs
 *.min.js
 *.min.css
+temp/

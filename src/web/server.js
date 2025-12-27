@@ -7,6 +7,7 @@ const express = require('express');
 const path = require('path');
 const ChartService = require('../services/chartService');
 const CoinGeckoProvider = require('../providers/coinGeckoProvider');
+const CacheManager = require('../utils/cache');
 const config = require('../utils/config');
 
 class WebServer {
@@ -16,6 +17,7 @@ class WebServer {
     this.port = process.env.PORT || 3000;
     this.chartService = new ChartService();
     this.coinGeckoProvider = new CoinGeckoProvider();
+    this.cache = new CacheManager();
     
     this.setupMiddleware();
     this.setupRoutes();
@@ -46,21 +48,43 @@ class WebServer {
         const { timeframe = '2Y' } = req.query;
         config.log('WebServer', `API request: stock chart quiz`, { symbol, timeframe });
         
-        // Fetch at least 2 years of data to ensure we have enough for quiz
-        const chartData = await this.chartService.fetchChartData(symbol, timeframe, '1d');
+        // Check cache first
+        const cacheKey = this.cache.getCacheKey('stock', symbol, timeframe);
+        const cachedData = this.cache.loadCache(cacheKey);
         
-        // Get additional stock info for P/E ratio
-        const stockInfo = await this.chartService.yfinance.fetchStockInfo(symbol);
+        let allData, stockInfo;
         
-        if (!chartData.data || chartData.data.length === 0) {
-          return res.status(400).json({ 
-            success: false, 
-            error: 'No data available for this symbol. Please try a different symbol.' 
+        if (cachedData) {
+          // Use cached data
+          config.log('WebServer', `Using cached data for ${symbol}`);
+          allData = cachedData.allData;
+          stockInfo = cachedData.stockInfo;
+        } else {
+          // Fetch fresh data
+          config.log('WebServer', `Fetching fresh data for ${symbol}`);
+          
+          // Fetch at least 2 years of data to ensure we have enough for quiz
+          const chartData = await this.chartService.fetchChartData(symbol, timeframe, '1d');
+          
+          // Get additional stock info for P/E ratio
+          stockInfo = await this.chartService.yfinance.fetchStockInfo(symbol);
+          
+          if (!chartData.data || chartData.data.length === 0) {
+            return res.status(400).json({ 
+              success: false, 
+              error: 'No data available for this symbol. Please try a different symbol.' 
+            });
+          }
+          
+          allData = chartData.data;
+          
+          // Save to cache
+          this.cache.saveCache(cacheKey, {
+            allData: allData,
+            stockInfo: stockInfo,
+            metadata: chartData.metadata
           });
         }
-        
-        // Filter data: work with all available data, not just before June 2025
-        const allData = chartData.data;
         
         if (allData.length < 210) { // Need at least ~7 months (180 days for 6 months + 30 days buffer)
           return res.status(400).json({ 
@@ -95,7 +119,8 @@ class WebServer {
           totalData: allData.length,
           visibleData: visibleData.length,
           hiddenData: hiddenData.length,
-          cutoffDate: cutoffDate.toISOString()
+          cutoffDate: cutoffDate.toISOString(),
+          fromCache: !!cachedData
         });
         
         res.json({
@@ -104,7 +129,7 @@ class WebServer {
           hiddenData: hiddenData,
           cutoffDate: cutoffDate.toISOString(),
           metadata: {
-            ...chartData.metadata,
+            ...(cachedData?.metadata || {}),
             trailingPE: stockInfo.trailingPE || 0,
             forwardPE: stockInfo.forwardPE || 0
           }
@@ -135,8 +160,26 @@ class WebServer {
         };
         const days = daysMap[timeframe] || 730;
         
-        const chartData = await this.coinGeckoProvider.fetchHistoricalData(coinId, 'usd', days);
-        const coinData = await this.coinGeckoProvider.fetchCoinData(coinId, 'usd');
+        // Check cache first
+        const cachedData = await this.cache.loadCache('crypto', coinId, timeframe);
+        let chartData, coinData, fromCache = false;
+        
+        if (cachedData) {
+          config.log('WebServer', `Using cached data for ${coinId}`);
+          chartData = cachedData.chartData;
+          coinData = cachedData.coinData;
+          fromCache = true;
+        } else {
+          config.log('WebServer', `Fetching fresh data for ${coinId}`);
+          chartData = await this.coinGeckoProvider.fetchHistoricalData(coinId, 'usd', days);
+          coinData = await this.coinGeckoProvider.fetchCoinData(coinId, 'usd');
+          
+          // Save to cache
+          await this.cache.saveCache('crypto', coinId, timeframe, {
+            chartData,
+            coinData
+          });
+        }
         
         if (!chartData.data || chartData.data.length === 0) {
           return res.status(400).json({ 
