@@ -39,21 +39,70 @@ class WebServer {
       res.sendFile(path.join(__dirname, 'public', 'index.html'));
     });
 
-    // API: Get stock chart data
+    // API: Get stock chart data for quiz
     this.app.get('/api/chart/stock/:symbol', async (req, res) => {
       try {
         const { symbol } = req.params;
-        const { timeframe = '3M' } = req.query;
-        config.log('WebServer', `API request: stock chart`, { symbol, timeframe });
+        const { timeframe = '2Y' } = req.query;
+        config.log('WebServer', `API request: stock chart quiz`, { symbol, timeframe });
         
+        // Fetch at least 2 years of data to ensure we have enough for quiz
         const chartData = await this.chartService.fetchChartData(symbol, timeframe, '1d');
         
         // Get additional stock info for P/E ratio
         const stockInfo = await this.chartService.yfinance.fetchStockInfo(symbol);
         
+        if (!chartData.data || chartData.data.length === 0) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'No data available for this symbol. Please try a different symbol.' 
+          });
+        }
+        
+        // Filter data: work with all available data, not just before June 2025
+        const allData = chartData.data;
+        
+        if (allData.length < 210) { // Need at least ~7 months (180 days for 6 months + 30 days buffer)
+          return res.status(400).json({ 
+            success: false, 
+            error: `Insufficient data (${allData.length} days). Try a symbol with more historical data.` 
+          });
+        }
+        
+        // Select random cutoff point
+        // Ensure at least 180 days before cutoff and 30 days after
+        const minIndex = Math.max(180, 0);
+        const maxIndex = allData.length - 30;
+        
+        if (maxIndex <= minIndex) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'Unable to create quiz with available data. Try a different timeframe or symbol.' 
+          });
+        }
+        
+        const randomCutoffIndex = Math.floor(Math.random() * (maxIndex - minIndex) + minIndex);
+        const cutoffDate = new Date(allData[randomCutoffIndex].timestamp);
+        
+        // Get 6 months (180 days) before cutoff
+        const startIndex = Math.max(0, randomCutoffIndex - 180);
+        const visibleData = allData.slice(startIndex, randomCutoffIndex + 1);
+        
+        // Get up to 30 days after cutoff
+        const hiddenData = allData.slice(randomCutoffIndex + 1, randomCutoffIndex + 31);
+        
+        config.log('WebServer', `Quiz data prepared`, {
+          totalData: allData.length,
+          visibleData: visibleData.length,
+          hiddenData: hiddenData.length,
+          cutoffDate: cutoffDate.toISOString()
+        });
+        
         res.json({
           success: true,
-          data: chartData.data,
+          data: visibleData,
+          hiddenData: hiddenData,
+          cutoffDate: cutoffDate.toISOString(),
           metadata: {
             ...chartData.metadata,
             trailingPE: stockInfo.trailingPE || 0,
@@ -61,36 +110,83 @@ class WebServer {
           }
         });
       } catch (error) {
+        console.error('Error in stock chart API:', error);
         res.status(500).json({ success: false, error: error.message });
       }
     });
 
-    // API: Get crypto chart data
+    // API: Get crypto chart data for quiz
     this.app.get('/api/chart/crypto/:coinId', async (req, res) => {
       try {
         const { coinId } = req.params;
-        const { timeframe = '3M' } = req.query;
-        config.log('WebServer', `API request: crypto chart`, { coinId, timeframe });
+        const { timeframe = '2Y' } = req.query;
+        config.log('WebServer', `API request: crypto chart quiz`, { coinId, timeframe });
         
-        // Map timeframe to days for CoinGecko
+        // Map timeframe to days for CoinGecko - fetch at least 2 years
         const daysMap = {
-          '1D': 1,
-          '5D': 5,
-          '1M': 30,
-          '3M': 90,
-          '6M': 180,
-          '1Y': 365,
+          '1D': 730,
+          '5D': 730,
+          '1M': 730,
+          '3M': 730,
+          '6M': 730,
+          '1Y': 730,
           '2Y': 730,
           '5Y': 1825
         };
-        const days = daysMap[timeframe] || 90;
+        const days = daysMap[timeframe] || 730;
         
         const chartData = await this.coinGeckoProvider.fetchHistoricalData(coinId, 'usd', days);
         const coinData = await this.coinGeckoProvider.fetchCoinData(coinId, 'usd');
         
+        if (!chartData.data || chartData.data.length === 0) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'No data available for this coin. Please try a different coin ID.' 
+          });
+        }
+        
+        const allData = chartData.data;
+        
+        if (allData.length < 210) {
+          return res.status(400).json({ 
+            success: false, 
+            error: `Insufficient data (${allData.length} points). Try a coin with more historical data.` 
+          });
+        }
+        
+        // Select random cutoff point
+        const minIndex = Math.max(180, 0);
+        const maxIndex = allData.length - 30;
+        
+        if (maxIndex <= minIndex) {
+          return res.status(400).json({ 
+            success: false, 
+            error: 'Unable to create quiz with available data. Try a different coin.' 
+          });
+        }
+        
+        const randomCutoffIndex = Math.floor(Math.random() * (maxIndex - minIndex) + minIndex);
+        const cutoffDate = new Date(allData[randomCutoffIndex].timestamp);
+        
+        // Get 6 months before cutoff
+        const startIndex = Math.max(0, randomCutoffIndex - 180);
+        const visibleData = allData.slice(startIndex, randomCutoffIndex + 1);
+        
+        // Get up to 30 days after cutoff
+        const hiddenData = allData.slice(randomCutoffIndex + 1, randomCutoffIndex + 31);
+        
+        config.log('WebServer', `Quiz data prepared`, {
+          totalData: allData.length,
+          visibleData: visibleData.length,
+          hiddenData: hiddenData.length,
+          cutoffDate: cutoffDate.toISOString()
+        });
+        
         res.json({
           success: true,
-          data: chartData.data,
+          data: visibleData,
+          hiddenData: hiddenData,
+          cutoffDate: cutoffDate.toISOString(),
           metadata: {
             name: coinData.name || coinId,
             symbol: coinData.symbol || '',
@@ -106,6 +202,7 @@ class WebServer {
           }
         });
       } catch (error) {
+        console.error('Error in crypto chart API:', error);
         res.status(500).json({ success: false, error: error.message });
       }
     });

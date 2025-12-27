@@ -49,9 +49,41 @@ main {
 /* Selection Row */
 .selection-row {
     display: grid;
-    grid-template-columns: 1fr 2fr 1.5fr auto;
+    grid-template-columns: 1fr 2fr auto;
     gap: 15px;
     align-items: end;
+}
+
+/* Quiz Examples - Compact Version */
+.quiz-examples-compact {
+    margin-top: 15px;
+    padding: 12px 15px;
+    background: #f7fafc;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.example-btn-compact {
+    padding: 6px 12px;
+    background: white;
+    border: 1px solid #cbd5e0;
+    border-radius: 4px;
+    font-size: 0.85em;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: #2d3748;
+    font-weight: 500;
+}
+
+.example-btn-compact:hover {
+    background: #667eea;
+    color: white;
+    border-color: #667eea;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
 }
 
 /* Form Styles */
@@ -64,6 +96,12 @@ main {
     margin-bottom: 5px;
     font-weight: 600;
     color: #333;
+}
+
+.form-group label input[type="checkbox"] {
+    margin-right: 8px;
+    width: auto;
+    cursor: pointer;
 }
 
 .form-group input,

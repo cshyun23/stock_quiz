@@ -20,7 +20,11 @@
         <main>
             <!-- Symbol Selection -->
             <section id="symbol-selection" class="section">
-                <h2>Select Asset</h2>
+                <h2>Start Trading Quiz</h2>
+                <p style="margin-bottom: 15px; color: #666;">
+                    Select an asset and start a quiz. You'll see 6 months of historical data before a random date,
+                    then predict the future price movement!
+                </p>
                 <div class="selection-row">
                     <div class="form-group">
                         <label for="asset-type">Asset Type:</label>
@@ -33,27 +37,36 @@
                         <label for="symbol-input">Symbol/Coin ID:</label>
                         <input type="text" id="symbol-input" placeholder="e.g., AAPL, bitcoin">
                     </div>
-                    <div class="form-group">
-                        <label for="timeframe-select">Timeframe:</label>
-                        <select id="timeframe-select">
-                            <option value="1M">1 Month</option>
-                            <option value="3M" selected>3 Months</option>
-                            <option value="6M">6 Months</option>
-                            <option value="1Y">1 Year</option>
-                            <option value="2Y">2 Years</option>
-                            <option value="5Y">5 Years</option>
-                        </select>
-                    </div>
-                    <button id="load-chart-btn" class="btn btn-primary">Load Chart</button>
+                    <button id="start-quiz-btn" class="btn btn-primary">Start Quiz</button>
+                </div>
+                <div class="quiz-examples-compact">
+                    <span style="color: #666; margin-right: 10px;">� Try:</span>
+                    <button class="example-btn-compact" data-type="stock" data-symbol="AAPL">AAPL</button>
+                    <button class="example-btn-compact" data-type="stock" data-symbol="GOOGL">GOOGL</button>
+                    <button class="example-btn-compact" data-type="stock" data-symbol="MSFT">MSFT</button>
+                    <button class="example-btn-compact" data-type="stock" data-symbol="TSLA">TSLA</button>
+                    <button class="example-btn-compact" data-type="stock" data-symbol="NVDA">NVDA</button>
+                    <button class="example-btn-compact" data-type="stock" data-symbol="META">META</button>
+                    <span style="color: #999; margin: 0 8px;">|</span>
+                    <button class="example-btn-compact" data-type="crypto" data-symbol="bitcoin">Bitcoin</button>
+                    <button class="example-btn-compact" data-type="crypto" data-symbol="ethereum">Ethereum</button>
+                    <button class="example-btn-compact" data-type="crypto" data-symbol="binancecoin">BNB</button>
+                    <button class="example-btn-compact" data-type="crypto" data-symbol="solana">Solana</button>
                 </div>
             </section>
 
             <!-- Chart Display -->
             <section id="chart-display" class="section hidden">
                 <div class="chart-header">
-                    <h2><span id="chart-symbol"></span> - <span id="chart-name"></span></h2>
+                    <div>
+                        <h2><span id="chart-symbol"></span> - <span id="chart-name"></span></h2>
+                        <p style="color: #666; font-size: 0.9em; margin-top: 5px;">
+                            📅 Showing data up to: <strong id="cutoff-date"></strong>
+                        </p>
+                    </div>
                     <div class="chart-controls">
                         <button id="reset-zoom-btn" class="btn btn-secondary">Reset Zoom</button>
+                        <button id="new-quiz-btn" class="btn btn-secondary">New Quiz</button>
                         <span class="chart-info">Use mouse wheel to zoom, drag to pan</span>
                     </div>
                 </div>
@@ -97,30 +110,30 @@
 
                 <!-- Trading Strategy Form -->
                 <div id="strategy-form">
-                    <h3>Trading Strategy</h3>
+                    <h3>Trading Strategy Quiz</h3>
                     <div class="strategy-inputs">
                         <div class="form-group">
-                            <label for="take-profit-input">Take-Profit Price ($):</label>
-                            <input type="number" id="take-profit-input" step="0.01" placeholder="Enter take-profit price">
+                            <label for="take-profit-input">Profit Price ($):</label>
+                            <input type="number" id="take-profit-input" step="0.01" placeholder="Target profit price">
                             <small>Exit position when price reaches this level (profit target)</small>
                         </div>
                         <div class="form-group">
                             <label for="stop-loss-input">Stop-Loss Price ($):</label>
-                            <input type="number" id="stop-loss-input" step="0.01" placeholder="Enter stop-loss price">
+                            <input type="number" id="stop-loss-input" step="0.01" placeholder="Stop loss price">
                             <small>Exit position to limit losses at this price</small>
                         </div>
                         <div class="form-group">
-                            <label for="max-days-input">Max Days to Hold:</label>
-                            <input type="number" id="max-days-input" min="1" placeholder="Enter maximum holding period">
-                            <small>Maximum number of days to hold this position</small>
+                            <label for="max-days-input">Max Days to Hold (max 30):</label>
+                            <input type="number" id="max-days-input" min="1" max="30" placeholder="Maximum holding period">
+                            <small>Maximum number of days to hold this position (up to 30 days)</small>
                         </div>
                     </div>
                     <div class="strategy-actions">
-                        <button id="calculate-strategy-btn" class="btn btn-success">Calculate Strategy</button>
+                        <button id="calculate-strategy-btn" class="btn btn-success">Submit & Show Result</button>
                         <button id="clear-strategy-btn" class="btn btn-secondary">Clear</button>
                     </div>
                     <div id="strategy-result" class="hidden">
-                        <h4>Strategy Analysis</h4>
+                        <h4>Quiz Result</h4>
                         <div id="strategy-output"></div>
                     </div>
                 </div>
